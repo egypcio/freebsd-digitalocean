@@ -1,0 +1,21 @@
+--- /etc/defaults/rc.conf	2016-03-25 02:11:14.000000000 +0000
++++ etc/defaults/rc.conf	2017-03-03 16:52:52.379856000 +0000
+@@ -722,5 +722,18 @@
+ 				;;
+ 			esac
+ 		done
++		# base/release/11.0.1/etc/defaults/rc.conf?revision=306421
++		for i in ${rc_conf_files}; do
++			case ${sourced_files} in
++			*:$i:*)
++				;;
++			*)
++				sourced_files="${sourced_files}:$i:"
++				if [ -r $i ]; then
++					. $i
++				fi
++				;;
++			esac
++		done
+ 	}
+ fi

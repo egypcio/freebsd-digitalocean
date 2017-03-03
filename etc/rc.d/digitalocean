@@ -1,0 +1,240 @@
+#!/bin/sh
+
+# PROVIDE: digitalocean
+# REQUIRE: var
+# BEFORE: hostname netif routing
+
+. /etc/rc.subr
+
+name="digitalocean"
+rcvar="${name}_enable"
+info_cmd="${name}_info"
+start_cmd="${name}_start"
+stop_cmd=":"
+extra_commands="info"
+
+: ${digitalocean_enable="YES"}
+: ${digitalocean_config="/etc/rc.conf.digitalocean"}
+: ${digitalocean_api="http://169.254.169.254/metadata/v1"}
+: ${digitalocean_user="freebsd"}
+: ${digitalocean_keys=".ssh/authorized_keys_digitalocean"}
+: ${digitalocean_nameservers="YES"}
+: ${digitalocean_uuid="NO"}
+: ${digitalocean_verbose="NO"}
+
+fetch="/usr/bin/fetch -q -o - ${digitalocean_api}"
+grep="/usr/bin/grep -q -i -l"
+jot="/usr/bin/jot -r 1 11 222"
+sysrc="/usr/sbin/sysrc -q -f"
+tr="/usr/bin/tr '[:upper:]' '[:lower:]'"
+if0="vtnet0"
+if1="vtnet1"
+j0=$(${jot})
+j1=$(${jot})
+
+digitalocean_bootstrap()
+{
+	echo "DigitalOcean: Bootstraping."
+
+	# ${sysrc} /etc/rc.conf digitalocean_enable=YES
+	# ${sysrc} /etc/rc.conf rc_conf_files+=${digitalocean_config}
+
+	if ( (${grep} zfs /boot/loader.conf* /etc/rc.conf*) && (${grep} zroot /boot/loader.conf*) ); then
+          echo " - Recovering/Resizing Disk..."
+          gpart recover vtbd0
+          gpart resize -i 3 vtbd0
+          echo " - Expanding ZFS Pool..."
+          zpool online -e zroot gpt/disk0
+	fi
+
+        # cp /usr/local/etc/cloud/cloud.cfg.d/99-digitalocean.cfg /usr/local/etc/cloud/cloud.cfg
+	# if [ ! -e /var/lib/cloud/seed/config_drive ]; then
+	#   mkdir -p /var/lib/cloud/seed/config_drive
+	#   ln -sfF /var/lib/cloud/seed /var/lib/cloud/seeds
+	# else
+	#   mount_cd9660 -o ro -v /dev/vtbd1 /var/lib/cloud/seed/config_drive
+	# fi
+
+	touch ${digitalocean_config}
+}
+
+digitalocean_info()
+{
+	$(ifconfig ${if0} inet 169.254.${j0}.${j1} netmask 255.255.0.0 alias)
+
+	DROPLET_ID=$(${fetch}/id)
+	DROPLET_REGION=$(${fetch}/region)
+	DROPLET_HOSTNAME=$(${fetch}/hostname)
+	if (checkyesno digitalocean_uuid); then
+	  DROPLET_UUID=$(dmidecode --string system-uuid | ${tr})
+	fi
+	DROPLET_NAMESERVERS=$(${fetch}/dns/nameservers)
+	DROPLET_FLOATINGIP_STATUS=$(${fetch}/floating_ip/ipv4/active)
+	DROPLET_PUBLIC_IP4_ADDR=$(${fetch}/interfaces/public/0/ipv4/address)
+	DROPLET_PUBLIC_IP4_MASK=$(${fetch}/interfaces/public/0/ipv4/netmask)
+	DROPLET_PUBLIC_IP4_GATE=$(${fetch}/interfaces/public/0/ipv4/gateway)
+	DROPLET_PUBLIC_ANCHOR_IP4_ADDR=$(${fetch}/interfaces/public/0/anchor_ipv4/address)
+	DROPLET_PUBLIC_ANCHOR_IP4_MASK=$(${fetch}/interfaces/public/0/anchor_ipv4/netmask)
+
+	echo "======================================================================"
+	echo -e "Droplet's ID\t\t"	${DROPLET_ID}
+	echo -e "Droplet's Region\t"	${DROPLET_REGION}
+	if (checkyesno digitalocean_uuid); then
+	  echo -e "Droplet's UUID\t\t"	${DROPLET_UUID}
+	fi
+	echo -e "Droplet's Hostname\t"	${DROPLET_HOSTNAME}
+	echo -e "Droplet's SSH User\t"	${digitalocean_user}
+	echo -e "Droplet's Nameservers"
+	case ${digitalocean_nameservers} in
+	[Nn][Oo][Nn][Ee]|2)
+	  echo " NONE"
+	  ;;
+        [Yy][Ee][Ss]|1)
+          for NS in ${DROPLET_NAMESERVERS};
+          do
+            echo -e " nameserver\t\t ${NS}"
+          done
+	  ;;
+        [Nn][Oo]|0)
+	  echo " "
+	  ;;
+        *)
+	  warn "digitalocean_nameservers is not set properly. Please check it."
+	  return 1
+	  ;;
+        esac
+
+	echo "Droplet's Floating IP"
+	if ${DROPLET_FLOATINGIP_STATUS}; then
+	  echo " $(${fetch}/floating_ip/ipv4/ip_address)"
+	else
+	  echo " DEACTIVATED"
+	fi
+        echo "----------------------------------------------------------------------"
+	echo "Droplet's Interfaces"
+        echo " Public (${if0})"
+          echo "  inet" ${DROPLET_PUBLIC_IP4_ADDR} "netmask" ${DROPLET_PUBLIC_IP4_MASK}
+          echo "  inet" ${DROPLET_PUBLIC_ANCHOR_IP4_ADDR} "netmask" ${DROPLET_PUBLIC_ANCHOR_IP4_MASK} alias
+          if [ ! -z $(${fetch}/interfaces/public/0/ipv6/address) ]; then
+	    DROPLET_PUBLIC_IP6_ADDR=$(${fetch}/interfaces/public/0/ipv6/address | ${tr})
+	    DROPLET_PUBLIC_IP6_PREFIX=$(${fetch}/interfaces/public/0/ipv6/cidr)
+            echo "  inet6" ${DROPLET_PUBLIC_IP6_ADDR} "prefixlen" ${DROPLET_PUBLIC_IP6_PREFIX}
+          fi  
+        echo " Private (${if1})"
+        if [ ! -z $(${fetch}/interfaces/private/0/ipv4/address) ]; then
+	  DROPLET_PRIVATE_IP4_ADDR=$(${fetch}/interfaces/private/0/ipv4/address)
+	  DROPLET_PRIVATE_IP4_MASK=$(${fetch}/interfaces/private/0/ipv4/netmask)
+          echo "  inet" ${DROPLET_PRIVATE_IP4_ADDR} "netmask" ${DROPLET_PRIVATE_IP4_MASK}
+        fi
+        echo "----------------------------------------------------------------------"
+	echo "Droplet's Gateways"
+	echo " IPv4 ${DROPLET_PUBLIC_IP4_GATE}"
+	if [ ! -z ${DROPLET_PUBLIC_IP6_ADDR}  ]; then
+	  DROPLET_PUBLIC_IP6_GATE=$(${fetch}/interfaces/public/0/ipv6/gateway | ${tr})
+	  echo " IPv6 ${DROPLET_PUBLIC_IP6_GATE}"
+	fi
+	echo "======================================================================"
+
+	$(ifconfig ${if0} inet 169.254.${j0}.${j1} netmask 255.255.0.0 -alias)
+}
+
+digitalocean_networking()
+{
+	service hostname restart
+	service netif restart
+	service routing restart
+}
+
+digitalocean_start()
+{
+	digitalocean_bootstrap
+
+	check_startmsgs && echo "DigitalOcean: Starting."
+
+	if (checkyesno digitalocean_verbose); then
+		digitalocean_info
+	fi
+
+	$(ifconfig ${if0} inet 169.254.${j0}.${j1} netmask 255.255.0.0 alias)
+
+	DROPLET_ID=$(${fetch}/id)
+        DROPLET_HOSTNAME=$(${fetch}/hostname)
+        DROPLET_NAMESERVERS=$(${fetch}/dns/nameservers)
+        DROPLET_PUBLIC_IP4_ADDR=$(${fetch}/interfaces/public/0/ipv4/address)
+        DROPLET_PUBLIC_IP4_MASK=$(${fetch}/interfaces/public/0/ipv4/netmask)
+        DROPLET_PUBLIC_IP4_GATE=$(${fetch}/interfaces/public/0/ipv4/gateway)
+        DROPLET_PUBLIC_ANCHOR_IP4_ADDR=$(${fetch}/interfaces/public/0/anchor_ipv4/address)
+        DROPLET_PUBLIC_ANCHOR_IP4_MASK=$(${fetch}/interfaces/public/0/anchor_ipv4/netmask)
+
+	echo ${DROPLET_ID} > /etc/hostid.droplet
+	
+        if (checkyesno digitalocean_uuid); then
+          DROPLET_UUID=$(dmidecode --string system-uuid | ${tr})
+          echo ${DROPLET_UUID} > /etc/hostid
+        fi
+
+	${sysrc} ${digitalocean_config} hostname="${DROPLET_HOSTNAME}"
+
+        case ${digitalocean_nameservers} in
+        [Nn][Oo][Nn][Ee]|2)
+	  $(resolvconf -d ${if0})
+          if [ ! -e "/etc/resolvconf.conf" ]; then
+	    echo "resolvconf=NO" > /etc/resolvconf.conf
+          else
+            sed 's/resolvconf=.*/resolvconf=NO/' /etc/resolvconf.conf
+          fi
+	  echo "# digitalocean_nameservers=NONE" > /etc/resolv.conf
+          ;;
+        [Yy][Ee][Ss]|1)
+          for NS in $(${fetch}/dns/nameservers);
+          do
+	    echo -e "nameserver\t\t ${NS}" | resolvconf -a ${if0}
+          done
+          echo "#  digitalocean_nameservers=YES" >> /etc/resolv.conf
+          if [ ! -e "/etc/resolvconf.conf" ]; then
+            echo "resolvconf=YES" > /etc/resolvconf.conf
+          else
+            sed 's/resolvconf=.*/resolvconf=YES/' /etc/resolvconf.conf
+          fi
+	  resolvconf -u
+          ;;
+        [Nn][Oo]|0)
+          return 0
+          ;;
+        *) 
+          warn "digitalocean_nameservers is not set properly. Please check it."
+          return 1
+          ;;
+        esac
+
+	${sysrc} ${digitalocean_config} ifconfig_${if0}="inet ${DROPLET_PUBLIC_IP4_ADDR} netmask ${DROPLET_PUBLIC_IP4_MASK}"
+	${sysrc} ${digitalocean_config} ifconfig_${if0}_alias0="inet ${DROPLET_PUBLIC_ANCHOR_IP4_ADDR} netmask ${DROPLET_PUBLIC_ANCHOR_IP4_MASK}"
+        if [ ! -z $(${fetch}/interfaces/public/0/ipv6/address) ]; then
+          DROPLET_PUBLIC_IP6_ADDR=$(${fetch}/interfaces/public/0/ipv6/address | ${tr})
+          DROPLET_PUBLIC_IP6_PREFIX=$(${fetch}/interfaces/public/0/ipv6/cidr)
+	  ${sysrc} ${digitalocean_config} ifconfig_${if0}_ipv6="inet6 ${DROPLET_PUBLIC_IP6_ADDR} prefixlen ${DROPLET_PUBLIC_IP6_PREFIX}"
+        fi
+        if [ ! -z $(${fetch}/interfaces/private/0/ipv4/address) ]; then
+          DROPLET_PRIVATE_IP4_ADDR=$(${fetch}/interfaces/private/0/ipv4/address)
+          DROPLET_PRIVATE_IP4_MASK=$(${fetch}/interfaces/private/0/ipv4/netmask)
+	  ${sysrc} ${digitalocean_config} ifconfig_${if1}="inet ${DROPLET_PRIVATE_IP4_ADDR} netmask ${DROPLET_PRIVATE_IP4_MASK}"
+        fi
+
+	${sysrc} ${digitalocean_config} defaultrouter="${DROPLET_PUBLIC_IP4_GATE}"
+	if [ ! -z ${DROPLET_PUBLIC_IP6_ADDR} ]; then
+	  DROPLET_PUBLIC_IP6_GATE=$(${fetch}/interfaces/public/0/ipv6/gateway | ${tr})
+	  ${sysrc} ${digitalocean_config} ipv6_defaultrouter="${DROPLET_PUBLIC_IP6_GATE}"
+	fi
+
+	$(${fetch}/public-keys > /home/${digitalocean_user}/${digitalocean_keys})
+	$(chown ${digitalocean_user} /home/${digitalocean_user}/${digitalocean_keys})
+	$(chmod 0400 /home/${digitalocean_user}/${digitalocean_keys})
+
+	$(ifconfig ${if0} inet 169.254.${j0}.${j1} netmask 255.255.0.0 -alias)
+
+	digitalocean_networking
+}
+
+load_rc_config "$name"
+run_rc_command "$1"
+

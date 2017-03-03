@@ -1,0 +1,17 @@
+AllowAgentForwarding		no
+AllowTcpForwarding		no
+AllowUsers			freebsd
+AuthorizedKeysFile		.ssh/authorized_keys .ssh/authorized_keys_digitalocean
+Banner				/etc/ssh/banner
+ChallengeResponseAuthentication	no
+
+LoginGraceTime	10
+LogLevel	DEBUG
+MaxAuthTries	1
+PermitRootLogin	no
+Protocol	2
+ServerKeyBits	2048
+UseDNS		no
+UsePAM		no
+VersionAddendum	REFUSED
+X11Forwarding	no
