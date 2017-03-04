@@ -230,7 +230,6 @@ digitalocean_start()
 	${sysrc} ${digitalocean_config} defaultrouter="${DROPLET_PUBLIC_IP4_GATE}"
 	if [ ! -z ${DROPLET_PUBLIC_IP6_ADDR} ]; then
 	  DROPLET_PUBLIC_IP6_GATE=$(${fetch}/interfaces/public/0/ipv6/gateway | ${tr})
-	  ${sysrc} /etc/rc.conf ipv6_activate_all_interfaces="YES"
 	  ${sysrc} ${digitalocean_config} ipv6_defaultrouter="${DROPLET_PUBLIC_IP6_GATE}"
 	fi
 
@@ -239,7 +238,9 @@ digitalocean_start()
 	$(chmod 0400 /home/${digitalocean_user}/${digitalocean_keys})
 
 	if [ ! -z ${DROPLET_PUBLIC_IP6_ADDR} ]; then
-	 ifconfig ${if0} inet6 -ifdisabled
+	  ${sysrc} /etc/rc.conf ip6addrctl_policy="prefer_ipv6"
+	  ${sysrc} /etc/rc.conf ipv6_activate_all_interfaces="YES"
+	  ifconfig ${if0} inet6 -ifdisabled
 	fi
 
 	$(ifconfig ${if0} inet 169.254.${j0}.${j1} netmask 255.255.0.0 -alias)
