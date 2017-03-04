@@ -212,7 +212,7 @@ digitalocean_start()
         if [ ! -z $(${fetch}/interfaces/public/0/ipv6/address) ]; then
           DROPLET_PUBLIC_IP6_ADDR=$(${fetch}/interfaces/public/0/ipv6/address | ${tr})
           DROPLET_PUBLIC_IP6_PREFIX=$(${fetch}/interfaces/public/0/ipv6/cidr)
-	  ${sysrc} ${digitalocean_config} ifconfig_${if0}_ipv6="inet6 ${DROPLET_PUBLIC_IP6_ADDR} prefixlen ${DROPLET_PUBLIC_IP6_PREFIX} -ifdisabled"
+	  ${sysrc} ${digitalocean_config} ifconfig_${if0}_ipv6="inet6 ${DROPLET_PUBLIC_IP6_ADDR} prefixlen ${DROPLET_PUBLIC_IP6_PREFIX} auto_linklocal -accept_rtadv -ifdisabled"
         fi
         if [ ! -z $(${fetch}/interfaces/private/0/ipv4/address) ]; then
           DROPLET_PRIVATE_IP4_ADDR=$(${fetch}/interfaces/private/0/ipv4/address)
