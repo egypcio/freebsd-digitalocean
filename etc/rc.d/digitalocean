@@ -5,7 +5,6 @@
 # BEFORE: hostname netif routing
 
 . /etc/rc.subr
-. /etc/network.subr
 
 name="digitalocean"
 rcvar="${name}_enable"
@@ -61,7 +60,7 @@ digitalocean_bootstrap()
 
 digitalocean_info()
 {
-	$(ifconfig ${if0} inet 169.254.${j0}.${j1} netmask 255.255.0.0 alias)
+	$(/sbin/ifconfig ${if0} inet 169.254.${j0}.${j1} netmask 255.255.0.0 alias)
 
 	DROPLET_ID=$(${fetch}/id)
 	DROPLET_REGION=$(${fetch}/region)
@@ -136,7 +135,7 @@ digitalocean_info()
 	fi
 	echo "======================================================================"
 
-	$(ifconfig ${if0} inet 169.254.${j0}.${j1} netmask 255.255.0.0 -alias)
+	$(/sbin/ifconfig ${if0} inet 169.254.${j0}.${j1} netmask 255.255.0.0 -alias)
 }
 
 digitalocean_networking()
@@ -145,10 +144,9 @@ digitalocean_networking()
 	service netif    start
 	service routing  start
 
-	if [ ! -z $(${fetch}/interfaces/public/0/ipv6/address) ]; then
-	 ifconfig ${if0} inet6 -ifdisabled
-	 service ip6addrctl start
-	fi
+	# if [ ! -z $(${fetch}/interfaces/public/0/ipv6/address) ]; then
+	#  service ip6addrctl restart
+	# fi
 }
 
 digitalocean_start()
@@ -161,7 +159,7 @@ digitalocean_start()
 		digitalocean_info
 	fi
 
-	$(ifconfig ${if0} inet 169.254.${j0}.${j1} netmask 255.255.0.0 alias)
+	$(/sbin/ifconfig ${if0} inet 169.254.${j0}.${j1} netmask 255.255.0.0 alias)
 
 	DROPLET_ID=$(${fetch}/id)
         DROPLET_HOSTNAME=$(${fetch}/hostname)
@@ -237,15 +235,15 @@ digitalocean_start()
 	$(chown ${digitalocean_user} /home/${digitalocean_user}/${digitalocean_keys})
 	$(chmod 0400 /home/${digitalocean_user}/${digitalocean_keys})
 
-	if [ ! -z ${DROPLET_PUBLIC_IP6_ADDR} ]; then
-	  ${sysrc} /etc/rc.conf ip6addrctl_policy="prefer_ipv6"
-	  ${sysrc} /etc/rc.conf ipv6_activate_all_interfaces="YES"
-	  ifconfig ${if0} inet6 -ifdisabled
-	fi
-
-	$(ifconfig ${if0} inet 169.254.${j0}.${j1} netmask 255.255.0.0 -alias)
+	# if [ ! -z ${DROPLET_PUBLIC_IP6_ADDR} ]; then
+	#  ${sysrc} /etc/rc.conf ifconfig_${if0}_ipv6="inet6 -ifdisabled"
+	#  ${sysrc} /etc/rc.conf ip6addrctl_policy="ipv6_prefer"
+	#  # ${sysrc} /etc/rc.conf ipv6_activate_all_interfaces="YES"
+	# fi
 
 	digitalocean_networking
+
+	$(/sbin/ifconfig ${if0} inet 169.254.${j0}.${j1} netmask 255.255.0.0 -alias)
 }
 
 load_rc_config "$name"

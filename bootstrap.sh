@@ -1,6 +1,7 @@
 #!/bin/sh
 
 GREP="/usr/bin/grep -q -i -l"
+SYSRC="/usr/sbin/sysrc -q -f"
 
 rm -rf /etc/ssh/ssh_host_*
 rm -rf /usr/local/etc/rc.d/digitalocean*
@@ -19,13 +20,19 @@ pkg install -y sudo
 pkg clean -y -a
 
 if ((${GREP} zfs /boot/loader.conf*) && (${GREP} zroot /boot/loader.conf*)); then
-  sysrc zfs_enable="YES"
+  ${SYSRC} /etc/rc.conf zfs_enable="YES"
   zfs destroy -vr zroot/usr/src
 fi
 
-if ((freebsd-version | ${GREP} 10.3)); then
+if ((/bin/freebsd-version | ${GREP} 10.3)); then
   patch -p0 /etc/defaults/rc.conf < etc/defaults/rc.conf_patch
 fi
+
+if ( ! (/sbin/ifconfig vtnet0 inet6 | ${GREP} disabled)); then
+  ${SYSRC} /etc/rc.conf ifconfig_vtnet0_ipv6="inet6 -ifdisabled"
+fi
+
+echo "######################################################################" >> /etc/rc.conf
 
 service sshd keygen
 service digitalocean info
