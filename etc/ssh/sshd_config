@@ -10,7 +10,6 @@ LogLevel	DEBUG
 MaxAuthTries	1
 PermitRootLogin	no
 Protocol	2
-ServerKeyBits	2048
 UseDNS		no
 UsePAM		no
 VersionAddendum	REFUSED

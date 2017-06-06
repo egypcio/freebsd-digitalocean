@@ -1,5 +1,6 @@
 # freebsd-digitalocean
-FreeBSD @ DigitalOcean
+
+DigitalOcean's Unofficial/Experimental rc Script
 
 1. Create a FreeBSD Droplet (10.3, or 11.0; UFS or ZFS. It doesn't matter);
 2. Run the steps below in your brand new FreeBSD Droplet;
@@ -8,8 +9,6 @@ FreeBSD @ DigitalOcean
 	
 	$ unzip -q master.zip
 	
-	$ cd freebsd-digitalocean-master
-	
-	$ sudo /bin/sh bootstrap.sh
+	$ sudo /bin/sh freebsd-digitalocean-master/bootstrap.sh
 	
 3. Done.
