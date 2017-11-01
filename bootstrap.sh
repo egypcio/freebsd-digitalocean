@@ -26,7 +26,7 @@ if ((${GREP} zfs /boot/loader.conf*) && (${GREP} zroot /boot/loader.conf*)); the
   zfs destroy -vr zroot/usr/src
 fi
 
-if ((/bin/freebsd-version | ${GREP} 10.3)); then
+if ((/bin/freebsd-version | ${GREP} ^10)); then
   patch -p0 /etc/defaults/rc.conf < ${BASE_DIR}/etc/defaults/rc.conf_patch
 fi
 

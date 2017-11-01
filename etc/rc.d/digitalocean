@@ -115,6 +115,8 @@ digitalocean_info()
 	  DROPLET_PRIVATE_IP4_ADDR=$(${fetch}/interfaces/private/0/ipv4/address)
 	  DROPLET_PRIVATE_IP4_MASK=$(${fetch}/interfaces/private/0/ipv4/netmask)
           echo "  inet" ${DROPLET_PRIVATE_IP4_ADDR} "netmask" ${DROPLET_PRIVATE_IP4_MASK}
+	else
+	  echo "  DEACTIVATED"
         fi
         echo "----------------------------------------------------------------------"
 	echo "Droplet's Gateways"
