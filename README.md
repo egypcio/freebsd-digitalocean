@@ -5,11 +5,9 @@
 1. Create a FreeBSD Droplet;
 2. Log in and run the following commands;
 
-    ```sh
     $ fetch -q https://github.com/egypcio/freebsd-digitalocean/archive/master.zip  
     $ unzip -q master.zip
     $ sudo /bin/sh freebsd-digitalocean-master/bootstrap.sh
-    ```
 	
 3. Done.
 
@@ -17,6 +15,5 @@ At the end of the bootstraping process the machine will reboot. It's all fine! B
 
 Should you want to review the Droplet's information again, all you need is:
 
-    ```sh
     $ service digitalocean info
-    ```
+
