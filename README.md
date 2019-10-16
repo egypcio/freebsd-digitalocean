@@ -5,9 +5,11 @@
 1. Create a FreeBSD Droplet;
 2. Log in and run the following commands;
 
+    ```
     $ fetch -q https://github.com/egypcio/freebsd-digitalocean/archive/master.zip  
     $ unzip -q master.zip
     $ sudo /bin/sh freebsd-digitalocean-master/bootstrap.sh
+    ```
 	
 3. Done.
 
